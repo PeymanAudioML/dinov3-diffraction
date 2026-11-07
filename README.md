@@ -14,8 +14,14 @@ similarity, and locate Bragg discs from the similarity map.
 3. Query = embedding of the probe-image patches that contain the aperture.
 4. Cosine similarity of the query with every diffraction patch → local maxima → sub-pixel centroid refinement.
 
+## Repository layout
+- `notebooks/`, `NOTES.md`: this project.
+- `dinov3/`: a copy of the [facebookresearch/dinov3](https://github.com/facebookresearch/dinov3) code
+  (commit `6876159`), used through `torch.hub.load(..., source="local")`. It is © Meta Platforms, Inc. and
+  distributed under the [DINOv3 License](dinov3/LICENSE.md); see that folder's own README.
+
 ## Requirements
-- A clone of [facebookresearch/dinov3](https://github.com/facebookresearch/dinov3) (loaded via `torch.hub`, `source="local"`).
+- The bundled `dinov3/` folder: set `DINOV3_LOCATION` in the notebook to its path.
 - DINOv3 weights `dinov3_vitl16_pretrain_sat493m-eadcf0ff.pth`, obtained from Meta under the
   [DINOv3 License](https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md). Weights are not included here.
 - Python packages: `torch`, `numpy`, `scipy`, `h5py`, `pandas`, `matplotlib`.
