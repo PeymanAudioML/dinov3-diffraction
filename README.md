@@ -4,7 +4,7 @@ Exploring frozen [DINOv3](https://github.com/facebookresearch/dinov3) features o
 (4D-STEM / CBED) patterns: encode diffraction patterns and their probe apertures, compare them with cosine
 similarity, and locate Bragg discs from the similarity map.
 
-- [`notebooks/dummy_data_explore.ipynb`](notebooks/dummy_data_explore.ipynb): data loading, DINOv3 encoding,
+- [`dinov3/notebooks/dummy_data_explore.ipynb`](dinov3/notebooks/dummy_data_explore.ipynb): data loading, DINOv3 encoding,
   probe-aperture similarity maps and Bragg-spot detection.
 - [`NOTES.md`](NOTES.md): method, results, what `dataPots` is, and next steps.
 
@@ -15,7 +15,7 @@ similarity, and locate Bragg discs from the similarity map.
 4. Cosine similarity of the query with every diffraction patch → local maxima → sub-pixel centroid refinement.
 
 ## Repository layout
-- `notebooks/`, `NOTES.md`: this project.
+- `dinov3/notebooks/dummy_data_explore.ipynb`, `NOTES.md`: this project.
 - `dinov3/`: a copy of the [facebookresearch/dinov3](https://github.com/facebookresearch/dinov3) code
   (commit `6876159`), used through `torch.hub.load(..., source="local")`. It is © Meta Platforms, Inc. and
   distributed under the [DINOv3 License](dinov3/LICENSE.md); see that folder's own README.
