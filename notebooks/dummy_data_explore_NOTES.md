@@ -1,7 +1,7 @@
 # DINOv3 + DPT (CHMv2) on simulated diffraction patterns: results
 
 Companion notes for `dummy_data_explore.ipynb`. The notebook now holds only the DINOv3 + DPT experiments; the earlier
-trained-decoder experiments are summarised in section 6 and live in git history (commit `c72ba57`).
+trained-decoder experiments are summarised in section 9 and live in git history (commit `c72ba57`).
 
 ## 1. Setup
 
@@ -93,12 +93,72 @@ Findings:
 - **SiO2 ≈ AlCo3** for the geometric readouts: no crystal-specific tuning is involved.
 - **SiO2 at 4 mrad** is lowest for every method: the disks overlap (diameter ≈ 2.4× spot spacing), a physical limit.
 
-## 5. Conclusions and next steps
+**What disk-ring is:** a correlation of the image with a zero-mean template of the probe disk: +1/N inside radius r,
+−1/M in the ring r+1 … r+3 px, 0 elsewhere (computed by FFT convolution; the template is symmetric). The score is
+"mean inside the disk − mean just around it", so it peaks at disk centres and a flat background scores zero. It is a
+matched filter, not normalised cross-correlation (no division by local brightness or variance), and uses no network
+and no labels.
 
-- The pretrained DINOv3 + DPT canopy-height model, used as is, **cannot locate Bragg disks**, with either input scaling
-  or with a geometric readout of its output. The bottleneck is the head, not necessarily the backbone features.
-- A simple filter on true-log input with no network (0.94–0.96 recall at 5 FP, 1 mrad) is the bar any DINOv3-based
-  detector has to beat.
+## 5. Adaptive preprocessing and Friedel / lattice post-processing
+
+A fixed true-log floor works at 20 Å but fails at 200–500 Å, where the diffuse background rises above the floor. The
+`adaptive01` preprocessing therefore (1) subtracts a smooth background (30th-percentile filter, ~3 disk diameters), (2) sets
+the log floor at 3× the image's own residual level and (3) scales the top to the Bragg disks with the direct beam masked.
+Post-processing adds a **Friedel check** (score = min of a detection and its mirror −g about the direct beam), a
+**lattice fit** (two vectors fitted to the 40 strongest detections; detections > 1.5 px off-lattice dropped) and a
+per-image **polarity check** for the CHMv2 map.
+
+## 6. All 24 crystals in `selected_folders`
+
+Run with `scripts/run_all_crystals.py` (inference only, ~50 min on a T4; 1,800 patterns); per-crystal results in
+`results/all_crystals_recall.csv`, plotted in the notebook's last section.
+
+**Median over crystals, visible-spot recall at 5 FP per image (1 / 2 / 4 mrad):**
+
+| score map | no post-processing | + Friedel + lattice |
+|---|---|---|
+| true log + disk-ring | **0.86 / 0.86 / 0.65** | 0.83 / 0.79 / 0.49 |
+| adaptive + disk-ring | 0.85 / 0.85 / 0.61 | 0.85 / 0.79 / 0.44 |
+| CHMv2(adaptive) + disk-ring | 0.08 / 0.01 / 0.00 | 0.14 / 0.03 / 0.04 |
+
+- **CHMv2 fails on every crystal:** it never beats the filter (0 of 72 crystal × angle cases) and still shows disks
+  as dark in 89 % of images.
+- **Adaptive ≈ true log** across crystals; its gain on SiO2 / AlCo3 does not generalise.
+- **Friedel + lattice does not help on average** and hurts at 4 mrad: the lattice fitted from detections is unreliable
+  for low-symmetry crystals (P1, Cm, Cc). Fitting the lattice from the image autocorrelation is the likely fix.
+- **Crystal matters most:** most crystals reach 0.8–1.0 at 1 mrad; ErCo5Si3 and HoTe3 stay low for every method.
+
+## 7. DINOSim with DINOv3 features
+
+DINOSim ([González-Marfil et al., bioRxiv 2025](https://www.biorxiv.org/content/10.1101/2025.03.09.642092v1);
+code [AAitorG/napari-DINOSim](https://github.com/AAitorG/napari-DINOSim)) compares each patch embedding with those at a
+few clicked reference points and refines with k-nearest neighbours (k = 5). It was run with the frozen DINOv3 ViT-L/16
+SAT-493M backbone instead of DINOv2 (`scripts/run_dinosim.py`); reference = 5 random visible spots on the 200 Å image of
+each file, the other 24 thicknesses scored. Results in `results/dinosim_recall.csv`.
+
+| visible recall @ 5 FP (1 / 2 / 4 mrad) | SiO2 | AlCo3 |
+|---|---|---|
+| DINOSim (true log) | 0.80 / 0.14 / 0.00 | 0.84 / 0.08 / 0.00 |
+| **DINOSim (adaptive)** | **0.97** / 0.04 / 0.00 | **0.93** / 0.04 / 0.02 |
+| disk-ring (true log) | 0.96 / 0.94 / 0.54 | 0.94 / 0.86 / 0.72 |
+| disk-ring (adaptive) | 0.97 / 0.93 / 0.38 | 0.94 / 0.89 / 0.63 |
+
+- At 1 mrad with the adaptive input DINOSim **matches** the filter: the frozen DINOv3 features do locate small disks,
+  unlike the CHMv2 head.
+- At 2–4 mrad it collapses: larger disks span several patches, so the similarity map marks whole disks rather than
+  centres, and peak picking finds several points per disk.
+- DINOSim uses 5 labelled spots per file; the filter uses none.
+
+## 8. Conclusions and next steps
+
+- The pretrained DINOv3 + DPT canopy-height model, used as is, **cannot locate Bragg disks** on any of the 24 crystals,
+  with either input scaling or with a geometric readout of its output. The bottleneck is the head, not the backbone
+  features: DINOSim on the same frozen backbone matches the filter at 1 mrad.
+- A simple filter on true-log input with no network (median 0.86 recall at 5 FP, 1–2 mrad, over 24 crystals) is the
+  bar any DINOv3-based detector has to beat.
+- **DINOSim + disk-ring readout:** read the DINOSim similarity map with the disk-ring filter to recover centres at
+  2–4 mrad; then all 24 crystals, and a probe-disk reference to make it label-free.
+- **Lattice from the image autocorrelation** instead of from detections.
 - **Stage 2:** train a small heatmap + offset head on the frozen DINOv3 features (blocks 5, 11, 17, 23), with fixed
   true-log preprocessing (ε = 1e-4), several crystals from `selected_folders` split into train / validation / test by
   crystal, shift / flip / 90° augmentation, threshold chosen on the validation crystals. Compare against "input true
@@ -109,7 +169,7 @@ Findings:
 - Caveats: thresholds come from the evaluated set; the sign of the CHMv2 true-log map (−1) was set from the figures,
   not tuned.
 
-## 6. Earlier experiments (removed from the notebook)
+## 9. Earlier experiments (removed from the notebook)
 
 Trained decoders on frozen plain DINOv3 ViT-L/16 features (SiO2, train on thicknesses < 400 Å, test 400–500 Å):
 - **Model A** (DINO features + image + probe): recall @ 5 FP on all reflections 0.97 / 0.92 / 0.35 at 1 / 2 / 4 mrad,
