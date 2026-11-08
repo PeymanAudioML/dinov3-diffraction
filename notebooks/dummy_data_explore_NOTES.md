@@ -72,24 +72,18 @@ Probably only a little: the main limits are domain gap, patch resolution and usi
   (linear probe / DPT) on spot labels from `dataPots`, finer resolution, and comparing against classical
   template matching (cross-correlation with the probe disc).
 
-## 5. Next steps
-- Score detected spots against `dataPots` peaks (precision, recall, position error), using the same columns as the
-  earlier `predicted_vs_gt_per_pattern.csv`.
-- Compare layers / models only after that evaluation exists.
+## 5. Results
+Full results, all taken from the notebook's saved outputs, are in [`results/RESULTS.md`](results/RESULTS.md):
+- **Full SiO₂ run** (model A, test thicknesses 400–500 Å): recall @ 5 FP/img on all reflections 0.97 / 0.92 / 0.35
+  at 1 / 2 / 4 mrad, median position error ≤ 0.09 px.
+- **Ablation** (B = same decoder without DINO features): 0.50 / 0.44 / 0.20. DINO features roughly double recall on all
+  reflections, but on *visible* spots B is close to A (and better at 2 mrad, 1 FP/img). Much of A's lead is on faint
+  reflections whose positions it can learn from the single fixed SiO₂ lattice.
+- **Cross-crystal** (A applied unchanged to AlCo₃, Pm-3m, all 25 thicknesses): recall 0.59 / 0.28 / 0.05 at the SiO₂
+  thresholds, with ~80 FP per image. The decoder does not generalise to a new lattice.
 
-## 6. Cross-crystal check: decoder applied to a new crystal
-Last notebook cell: the decoder (model A, trained on SiO2 with thicknesses < 400 Å) is applied, unchanged, to AlCo3
-(Pm-3m, cubic, mp-1018101) from `dummy_data/selected_folders/0c6670dd-…`. All 3 probe angles × 25 thicknesses are used.
-Cut-off scores are the per-angle 5 FP/image thresholds from the SiO2 held-out set.
-
-| α (mrad) | recall (all reflections) | precision | FP / image |
-|---|---|---|---|
-| 1 | 0.62 | 0.36 | 82 |
-| 2 | 0.26 | 0.18 | 86 |
-| 4 | 0.04 | 0.05 | 56 |
-
-- 1 mrad: the bright, separated spots are found, with ~0.1 px position error on matches.
-- The SiO2 cut-offs are too low here, so many detections land on background noise.
-- 2 and 4 mrad: the overlapping disks differ from SiO2 and recall collapses.
-- As expected for a decoder trained on one crystal and one orientation. Next: train across many crystals from
-  `selected_folders` and split by crystal.
+## 6. Next steps
+- Train on many crystals (e.g. the 24 in `dummy_data/selected_folders`, 3 angles each) and split by crystal, so the
+  decoder cannot memorise one lattice.
+- Re-run the ablation under that split to see whether the DINO features still help on unseen crystals.
+- Then compare DINOv3 layers / models (section 4).
