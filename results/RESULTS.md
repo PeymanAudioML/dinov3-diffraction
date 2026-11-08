@@ -48,4 +48,8 @@ GT visible: 283 / 85 / 1. Classical p=1: 184/20/99 (1 mrad), 54/20/31 (2 mrad). 
 
 Full tables (incl. no-threshold counts): `tp_fp_fn_counts.txt`; run log: `benchmark_smoke_test.log`.
 
-Figures: `froc.png`, `recall_vs_thickness.png`, `example_maps_t200.png`, `decoder_heatmaps.png`.
+Figures: `froc.png`, `recall_vs_thickness.png`, `example_maps_t200.png`, `decoder_heatmaps.png`,
+`tp_fp_fn_test_images.png` (every held-out image: green + TP, red × FP, yellow ○ FN).
+
+**Caveat on the decoder:** all images share identical spot positions (one crystal, one orientation), so it may memorise
+the lattice — it marks spots in dark areas where nothing is visible. Test on other crystals/orientations or shifted patterns.
