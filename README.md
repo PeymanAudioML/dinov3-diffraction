@@ -31,4 +31,4 @@ Paths in the notebook (`DINOV3_LOCATION`, `BACKBONE_WEIGHTS`, `DATA_DIR`) point 
 to match yours.
 
 ## Results
-Benchmark (spot TP/FP/FN, FROC, trained decoder): [results/RESULTS.md](results/RESULTS.md)
+Trained-decoder Bragg-spot detection (TP/FP/FN, FROC): [results/RESULTS.md](results/RESULTS.md)

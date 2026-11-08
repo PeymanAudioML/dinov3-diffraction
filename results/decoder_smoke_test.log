@@ -1,0 +1,56 @@
+--- cell 1 ok (0s)
+--- cell 3 ok (0s)
+d4a6b046  SiO2  probe α=1 mrad  E0=300 kV  thicknesses=20–500 Å (25)
+    dataMeas  (256, 256, 25)  min=4.37e-13  max=0.978
+    dataPots  (256, 256, 25)  min=0.0217  max=4.33e+03
+    dataQz    (256, 256, 25)  min=-0.0567  max=0.0567
+    dataProbe (256, 256)  min=0  max=1
+c75e81af  SiO2  probe α=2 mrad  E0=300 kV  thicknesses=20–500 Å (25)
+    dataMeas  (256, 256, 25)  min=6.19e-12  max=0.996
+    dataPots  (256, 256, 25)  min=0.0247  max=4.33e+03
+    dataQz    (256, 256, 25)  min=-0.0472  max=0.0472
+    dataProbe (256, 256)  min=0  max=1
+a5f089b3  SiO2  probe α=4 mrad  E0=300 kV  thicknesses=20–500 Å (25)
+    dataMeas  (256, 256, 25)  min=6.53e-12  max=1.39
+    dataPots  (256, 256, 25)  min=0.0243  max=4.33e+03
+    dataQz    (256, 256, 25)  min=-0.0494  max=0.0494
+    dataProbe (256, 256)  min=0  max=1
+--- cell 5 ok (0s)
+--- cell 6 ok (0s)
+DINOv3 ViT-L/16 (SAT-493M): embed_dim=1024  blocks=24  patch=16  |  303 M params on cpu
+  diff_cls     (1, 1024)
+  diff_patch   (1, 1024, 64, 64)
+  probe_cls    (1024,)
+  probe_patch  (1024, 64, 64)
+--- cell 14 ok (403s)
+token = 2.0 px, scored region = detector px 68…187
+example GT (SiO2, α=1 mrad, t=200 Å): 106 lattice maxima, 53 visible, direct beam at [128. 128.]
+--- cell 16 ok (0s)
+SiO2, α=1 mrad: encoded 4 thicknesses
+SiO2, α=2 mrad: encoded 4 thicknesses
+SiO2, α=4 mrad: encoded 4 thicknesses
+--- cell 17 ok (335s)
+decoder: 6 train / 6 test patterns (test = thickness ≥ 400 Å, all angles)
+step     0  loss 2.499
+step   250  loss 0.427
+step   299  loss 0.381
+--- cell 19 ok (151s)
+mrad                   1        2        4
+vis recall@1FP     0.285    0.167    0.000
+vis recall@5FP     0.613    0.389    0.000
+vis loc_err@5FP    0.254    0.691      NaN
+all recall@1FP     0.174    0.054    0.000
+all recall@5FP     0.562    0.197    0.014
+all loc_err@5FP    0.376    0.775    1.038
+visible_GT       137.000   36.000    0.000
+all_GT           224.000  223.000  222.000
+--- cell 20 ok (3s)
+                 GT  TP  FP   FN
+mrad thickness                  
+1    420        112  62   4   50
+     460        112  64   6   48
+2    420        111  23   6   88
+     460        112  21   4   91
+4    420        110   2   3  108
+     460        112   1   7  111
+--- cell 22 ok (1s)

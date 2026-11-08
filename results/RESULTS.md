@@ -1,55 +1,46 @@
-# Bragg-spot benchmark — smoke-test results
+# Bragg-spot detection with a trained decoder — smoke-test results
 
 Notebook: `dinov3/notebooks/dummy_data_explore.ipynb`. Data: simulated SiO₂, probe α = 1 / 2 / 4 mrad.
 
-**Smoke test only:** CPU, 4 thicknesses (20, 200, 420, 460 Å → indices 0, 9, 20, 22), decoder trained 300 steps on 6 patterns.
+**Smoke test only:** CPU, 4 thicknesses (20, 200, 420, 460 Å), decoder trained 300 steps.
 Full run (25 thicknesses, 1500 steps on GPU) still to do.
 
 ## Pipeline
-1. **GT** from `dataPots`: maxima ≥ 5 % of max, ≥ 5 px apart, direct beam removed → ~105 lattice spots/pattern, same for every angle.
-   "Visible" = disk in `dataMeas` ≥ 3× its surrounding ring.
-2. **DINOv3 ViT-L/16** (frozen): crop 128 px → resize 1024 → 64×64 tokens, 2 detector px/token.
-3. **Detection maps:** DINO averaged query (cosine), DINO spatial template (token NCC), classical probe correlation p = 0 / 0.5 / 1.
-   Peaks ≥ 4 px apart, sub-px refinement, per-method centre calibration on the probe image.
-4. **Scoring:** TP = within 2 px of an unmatched GT spot; FP otherwise; direct beam (and invisible spots in the "vis" protocol) ignored.
-   Threshold chosen per method/angle so FP = 5 per image.
-5. **Trained decoder:** DINO tokens + raw image + probe → heatmap + offsets; train t < 400 Å, test t ≥ 400 Å (all angles together).
+1. **Ground truth** from `dataPots`: maxima ≥ 5 % of max, ≥ 5 px apart, direct beam removed → ~112 lattice spots per
+   image, identical for every angle. "Visible" = disk in `dataMeas` ≥ 3× its surrounding ring.
+2. **DINOv3 ViT-L/16** (frozen): crop 128 px → resize 1024 → 64×64 tokens (2 detector px per token).
+3. **Decoder:** DINO tokens + raw pattern + probe image → spot heatmap + sub-pixel offsets.
+4. **Split:** train on thickness < 400 Å, test on ≥ 400 Å; all three angles of a thickness on the same side.
+   Smoke test: 6 train / 6 test images (full run: 57 / 18).
+5. **Scoring:** TP = within 2 px of an unmatched GT spot, FP otherwise (direct beam ignored), FN = GT spot not found.
+   Threshold per angle chosen so FP = 5 per image.
 
-## TP / FP / FN at 5 FP per image — all lattice reflections, 4 thicknesses (map refinement)
+## TP / FP / FN per held-out test image (all lattice reflections, 5 FP/img threshold)
 
-| method | 1 mrad TP / FP / FN | recall | 2 mrad TP / FP / FN | recall | 4 mrad TP / FP / FN | recall |
-|---|---|---|---|---|---|---|
-| GT spots | 425 | | 436 | | 429 | |
-| DINO avg-query | 61 / 20 / 364 | 0.14 | 4 / 20 / 432 | 0.01 | 0 / 20 / 429 | 0.00 |
-| DINO spatial | 39 / 15 / 386 | 0.09 | 19 / 13 / 417 | 0.04 | 7 / 11 / 422 | 0.02 |
-| classical p=0 | 9 / 20 / 416 | 0.02 | 25 / 20 / 411 | 0.06 | 33 / 20 / 396 | 0.08 |
-| classical p=0.5 | 64 / 20 / 361 | 0.15 | 38 / 20 / 398 | 0.09 | 25 / 20 / 404 | 0.06 |
-| **classical p=1** | **207 / 20 / 218** | **0.49** | **70 / 20 / 366** | **0.16** | 6 / 10 / 423 | 0.01 |
+| angle | thickness | GT | TP | FP | FN |
+|---|---|---|---|---|---|
+| 1 mrad | 420 Å | 112 | 62 | 4 | 50 |
+| 1 mrad | 460 Å | 112 | 64 | 6 | 48 |
+| 2 mrad | 420 Å | 111 | 23 | 6 | 88 |
+| 2 mrad | 460 Å | 112 | 21 | 4 | 91 |
+| 4 mrad | 420 Å | 110 | 2 | 3 | 108 |
+| 4 mrad | 460 Å | 112 | 1 | 7 | 111 |
 
-## Held-out thicknesses (≥ 400 Å, 2 patterns per angle), all reflections, 5 FP/img
+## Recall and position error
 
-| method | 1 mrad TP / FP / FN | 2 mrad TP / FP / FN | 4 mrad TP / FP / FN |
+| | 1 mrad | 2 mrad | 4 mrad |
 |---|---|---|---|
-| GT spots | 224 | 223 | 222 |
-| classical p=1 | 95 / 10 / 129 | 31 / 10 / 192 | 2 / 9 / 220 |
-| classical p=0 | 5 / 10 / 219 | 14 / 10 / 209 | **23 / 10 / 199** |
-| DINO spatial | 25 / 10 / 199 | 9 / 9 / 214 | 5 / 8 / 217 |
-| **trained decoder** | **126 / 10 / 98** | **44 / 10 / 179** | 3 / 10 / 219 |
-
-## Visible spots only (4 thicknesses, 5 FP/img)
-GT visible: 283 / 85 / 1. Classical p=1: 184/20/99 (1 mrad), 54/20/31 (2 mrad). DINO spatial: 39/15/244, 13/13/72.
+| recall @ 5 FP/img, all reflections | 0.56 | 0.20 | 0.01 |
+| recall @ 5 FP/img, visible spots | 0.61 | 0.39 | – (no visible spots) |
+| median position error (px) | 0.38 | 0.78 | 1.04 |
 
 ## Takeaways
-- Classical cross-correlation (p = 1) is the best untrained method at 1 and 2 mrad: 3–5× the TPs of either DINO map at the same FP rate.
-- Frozen DINO features add no detection value yet; spatial matching beats the averaged query only at 2 and 4 mrad.
-- At 4 mrad the disks overlap, and every method finds < 10 % of spots (phase correlation p = 0 is least bad).
-- The small decoder already beats classical p=1 on held-out thicknesses (126 vs 95 TP at 1 mrad, 44 vs 31 at 2 mrad), but it is trained on only 6 patterns.
-- Single crystal / one orientation → this is a debugging benchmark, not a generalisation test.
+- 1 mrad: more than half of all spots are found, with sub-pixel accuracy. Most FN are faint outer reflections.
+- 2 mrad: the central disks are found, but outer and overlapping ones are missed.
+- 4 mrad: the disks merge into one blob and the decoder finds almost nothing.
+- **Caveat:** all images share identical spot positions (one crystal, one orientation), so the decoder may memorise
+  the lattice (it marks spots in dark areas where nothing is visible). A real test needs other crystals / orientations
+  or shifted patterns.
 
-Full tables (incl. no-threshold counts): `tp_fp_fn_counts.txt`; run log: `benchmark_smoke_test.log`.
-
-Figures: `froc.png`, `recall_vs_thickness.png`, `example_maps_t200.png`, `decoder_heatmaps.png`,
-`tp_fp_fn_test_images.png` (every held-out image: green + TP, red × FP, yellow ○ FN).
-
-**Caveat on the decoder:** all images share identical spot positions (one crystal, one orientation), so it may memorise
-the lattice — it marks spots in dark areas where nothing is visible. Test on other crystals/orientations or shifted patterns.
+Figures: `decoder_tp_fp_fn.png` (green + TP, red × FP, yellow ○ FN on every test image),
+`decoder_froc_recall.png` (FROC + recall vs thickness), `decoder_heatmaps.png`. Log: `decoder_smoke_test.log`.
