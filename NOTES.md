@@ -76,3 +76,20 @@ Probably only a little: the main limits are domain gap, patch resolution and usi
 - Score detected spots against `dataPots` peaks (precision, recall, position error), using the same columns as the
   earlier `predicted_vs_gt_per_pattern.csv`.
 - Compare layers / models only after that evaluation exists.
+
+## 6. Cross-crystal check: decoder applied to a new crystal
+Last notebook cell: the decoder (model A, trained on SiO2 with thicknesses < 400 Å) is applied, unchanged, to AlCo3
+(Pm-3m, cubic, mp-1018101) from `dummy_data/selected_folders/0c6670dd-…`. All 3 probe angles × 25 thicknesses are used.
+Cut-off scores are the per-angle 5 FP/image thresholds from the SiO2 held-out set.
+
+| α (mrad) | recall (all reflections) | precision | FP / image |
+|---|---|---|---|
+| 1 | 0.62 | 0.36 | 82 |
+| 2 | 0.26 | 0.18 | 86 |
+| 4 | 0.04 | 0.05 | 56 |
+
+- 1 mrad: the bright, separated spots are found, with ~0.1 px position error on matches.
+- The SiO2 cut-offs are too low here, so many detections land on background noise.
+- 2 and 4 mrad: the overlapping disks differ from SiO2 and recall collapses.
+- As expected for a decoder trained on one crystal and one orientation. Next: train across many crystals from
+  `selected_folders` and split by crystal.
