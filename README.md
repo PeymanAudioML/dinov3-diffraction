@@ -31,4 +31,5 @@ Paths in the notebook (`DINOV3_LOCATION`, `BACKBONE_WEIGHTS`, `DATA_DIR`) point 
 to match yours.
 
 ## Results
-Trained-decoder Bragg-spot detection (TP/FP/FN, FROC): [results/RESULTS.md](results/RESULTS.md)
+Trained-decoder Bragg-spot detection on SiO₂ (full run), the DINO vs no-DINO ablation, and a cross-crystal check on
+AlCo₃: [results/RESULTS.md](results/RESULTS.md)
