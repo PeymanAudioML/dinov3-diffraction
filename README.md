@@ -29,3 +29,6 @@ similarity, and locate Bragg discs from the similarity map.
 
 Paths in the notebook (`DINOV3_LOCATION`, `BACKBONE_WEIGHTS`, `DATA_DIR`) point to the original machine; edit them
 to match yours.
+
+## Results
+Benchmark (spot TP/FP/FN, FROC, trained decoder): [results/RESULTS.md](results/RESULTS.md)
