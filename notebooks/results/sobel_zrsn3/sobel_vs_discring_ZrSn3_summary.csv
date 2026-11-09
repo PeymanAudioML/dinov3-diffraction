@@ -1,0 +1,4 @@
+mrad,images,lattice_reflections_per_image,sobel_better,sobel_worse,tie,wilcoxon_p,discring_median_all5,discring_mean_all5,discring_true_centres_found,discring_median_fp,discring_median_err_px,discring_median_err_p90_px,sobel_median_all5,sobel_mean_all5,sobel_true_centres_found,sobel_median_fp,sobel_median_err_px,sobel_median_err_p90_px,lattice_reflections_total
+1,25,64.0,13,3,9,0.0031,0.9375,0.862,1383,5.0,0.2261,0.5728,0.9375,0.882,1415,3.0,0.2139,0.5216,1604
+2,25,64.0,0,25,0,0.0,0.7188,0.7035,1128,5.0,0.4512,0.9795,0.1094,0.1172,188,5.0,0.2247,0.3418,1604
+4,25,64.0,25,0,0,0.0,0.0156,0.015,24,5.0,1.0591,1.195,0.1562,0.21,336,5.0,0.7158,1.2116,1600

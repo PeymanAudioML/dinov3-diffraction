@@ -1,18 +1,27 @@
-# Usage: python run_per_image.py OUT.csv [CHMV2_ROWS.pkl DINOSIM_ROWS.pkl]
+# Usage: python run_per_image.py OUT.csv [--crystals NAME ...] [CHMV2_ROWS.pkl DINOSIM_ROWS.pkl]
+#   --crystals: only crystals whose name starts with one of these (e.g. --crystals ZrSn3); default all.
 # Scores every image separately (one crystal, one probe angle, one thickness). For each image the threshold is the
 # lowest score that keeps at most k false positives in that image (k = 1, 5); recall = found / visible in that image.
 # Images with no visible reflection get NaN. CPU only. Methods:
 #   "true log + disc-ring"           the method (reflect padding, as in the notebook)          SiO2 + 24 crystals
 #   "true log + disc-ring, zero pad" the same with zero padding (edge-fix comparison)          SiO2 + 24 crystals
 #   "filled disk (linear)"           raw intensity correlated with a filled disk                SiO2 + AlCo3
+#   "true log + Sobel probe match"   Sobel magnitude of true log x Sobel magnitude of dataProbe SiO2 + 24 crystals
+# Two cutoffs, both chosen per image using the ground truth: "vis" (≤ k false detections among visible reflections)
+# and "all" (≤ 5 false detections when every lattice reflection is a target). At the "all" cutoff the script also
+# reports the false-detection count and the median / 90th-percentile centre error of the correct detections.
 # Optional: per-image rows saved by run_all_crystals.py (CHMv2) and run_dinosim.py (DINOSim) are scored the same way.
 import json, sys, pickle
-OUT = sys.argv[1]; EXTRA = sys.argv[2:]
+args = sys.argv[1:]; OUT = args.pop(0); CRYS = None
+if "--crystals" in args:
+    i = args.index("--crystals"); j = next((k for k in range(i + 1, len(args)) if args[k].endswith(".pkl")), len(args))
+    CRYS = args[i + 1:j]; del args[i:j]
+EXTRA = args
 nb = json.load(open("/mnt/data/DINOV3/dinov3/notebooks/dummy_data_explore.ipynb")); c = nb["cells"]
 src = lambda i: "".join(c[i]["source"])
 s10 = src(10); s10 = s10[:s10.index("tl_in, tl_out, tl_rows")]
 s12 = src(12); s12 = s12[:s12.index("loc_rows = []")]
-g = {"OUT": OUT, "EXTRA": EXTRA}
+g = {"OUT": OUT, "EXTRA": EXTRA, "CRYS": CRYS}
 exec(compile("import matplotlib; matplotlib.use('Agg')\nimport torch\ndisplay=print\nDPT_SIZE=1024\n" + src(1) + "\n" + src(2) + "\n" + src(4) + "\n" + s10 + "\n" + s12, "setup", "exec"), g)
 exec(compile(r'''
 import time, pickle
@@ -33,6 +42,12 @@ def score_image(row):
     if "err" in row:
         e = row["err"][(row["status"] == 1) & (row["scores"] >= thr5)]
         o["err_med"] = float(np.median(e)) if len(e) else np.nan; o["err_p90"] = float(np.percentile(e, 90)) if len(e) else np.nan
+    if "err_all" in row:                                        # all-reflection cutoff: ≤ 5 false detections per image
+        thrA = operating_point([row], 5, "all")[0]; keep = row["scores"] >= thrA
+        tp, fp = keep & (row["status_all"] == 1), keep & (row["status_all"] == 0)
+        e = row["err_all"][tp]
+        o.update(tp_all5=int(tp.sum()), fp_all5=int(fp.sum()),
+                 err_all_med=float(np.median(e)) if len(e) else np.nan, err_all_p90=float(np.percentile(e, 90)) if len(e) else np.nan)
     return o
 
 def run(m, gt):
@@ -44,6 +59,8 @@ crystals = [("SiO2", sims)]
 for f in sorted(ROOT.iterdir()):
     if f.is_dir():
         ss = load_crystal(f); m0 = ss[0]["meta"]; crystals.append((f"{m0['pretty_formula']} ({m0['space_group_symbol']})", ss))
+if CRYS:
+    crystals = [(cr, ss) for cr, ss in crystals if any(cr.startswith(k) for k in CRYS)]
 out, t0 = [], time.time()
 for ci, (cr, ss) in enumerate(crystals):
     for s in ss:
@@ -53,7 +70,8 @@ for ci, (cr, ss) in enumerate(crystals):
         for t, th in enumerate(s["thicknesses"]):
             gt = ground_truth(s, t); x = true_log01(s["dataMeas"][..., t], EPS_LOC)
             maps = {"true log + disc-ring": disc_centre_map(x, r, +1),
-                    "true log + disc-ring, zero pad": fftconvolve(x, K, mode="same")}
+                    "true log + disc-ring, zero pad": fftconvolve(x, K, mode="same"),
+                    "true log + Sobel probe match": sobel_probe_map(x, s["dataProbe"])}
             if cr in ("SiO2", "AlCo3 (Pm-3m)"):
                 maps["filled disk (linear)"] = fftconvolve(crop(s["dataMeas"][..., t]).astype(np.float64), disc_kernel(r), mode="same")
             for meth, m in maps.items():
