@@ -47,7 +47,9 @@ filter's ring lies on background and almost every visible reflection is found, w
 \SIrange{0.2}{0.3}{px}. Once the ring reaches the neighbouring disks, their intensity is subtracted from the response at the
 true centre: the response there falls from a robust $z$-score of about 5 to near 0, the error grows to \SI{1}{px}, and
 fewer than \SI{5}{\percent} of the lattice reflections are found when $\eta > 1.5$. A synthetic experiment that changes
-only the disk size reproduces the collapse, and shows that interference between overlapping disks makes it worse. To keep
+only the disk size reproduces the collapse, and shows that interference between overlapping disks makes it worse. Matching
+the probe rim with Sobel edges instead doubles the centres found at \SI{4}{\milli\radian} but halves them at
+\SI{2}{\milli\radian}. To keep
 the disks separable, the probe semi-angle should not exceed $(s - \SI{3}{px})/(2\kappa)$, where
 $\kappa \approx \SI{2.5}{px\per\milli\radian}$ is the disk radius per milliradian.
 \end{abstract}
@@ -64,7 +66,8 @@ finally overlap (\cref{fig:geometry}).
 This tutorial has two aims. The first is to describe a simple, training-free detector, true-log scaling followed by a
 disk--ring matched filter (\cref{sec:method}), and to show how well it works when the disks are separate
 (\cref{sec:results}). The second, and main, aim is to explain \emph{why} it fails when the disks overlap
-(\cref{sec:overlap}). Everything is organised around one number, the overlap ratio
+(\cref{sec:overlap}), and to test whether matching only the disk rims helps (\cref{sec:sobel}). Everything is organised
+around one number, the overlap ratio
 \begin{equation}
   \eta = \frac{2r}{s},
   \label{eq:eta}
@@ -483,6 +486,302 @@ None of these is a defect of a parameter choice: they follow from looking for di
 longer separate.
 
 %══════════════════════════════════════════════════════════════════════════════
+\section{Disk--ring versus Sobel probe matching}\label{sec:sobel}
+\Cref{sec:overlap} showed that under overlap the disk--ring filter fails because its ring no longer samples
+background and because some disks become darker than their surroundings. The rim of a disk, however, remains visible as an
+intensity step of either sign. This section tests a detector that matches only the rims: the gradient magnitude of the
+image correlated with the gradient magnitude of the probe.
+
+\subsection{Method}
+With $G_x$ and $G_y$ the horizontal and vertical Sobel kernels, the edge map of the true-log image is
+\begin{equation}
+  E_T = \sqrt{(G_x * T)^2 + (G_y * T)^2} ,
+  \label{eq:sobel}
+\end{equation}
+which is large at bright and at dark rims alike. The template $E_P$ is the same quantity computed on the probe aperture
+$P$ of the same probe angle, at the same pixel scale, after shifting $P$ so that its centroid falls on the centre pixel of
+the template; it is cut to a half-width of $\lceil r\rceil + 3$ pixels and normalised to sum to one. The response is
+the cross-correlation
+\begin{equation}
+  C(\vect p) = \sum_{\vect u} E_P(\vect u)\, E_T(\vect p + \vect u),
+  \label{eq:sobelcorr}
+\end{equation}
+computed by FFT with mirror padding, as for the disk--ring filter. Robust $z$-scoring, peak finding and sub-pixel refinement
+are unchanged (\cref{eq:z}). On isolated synthetic disks made from the real probe, the detected centre is exact at integer
+positions and within \SI{0.14}{px} at sub-pixel positions, the same as for the disk--ring filter.
+
+\subsection{Evaluation}
+Both detectors are run on all 1\,875 images. Because the aim is to recover centres under overlap, every lattice reflection
+is a target, not only the visible ones. For each image the cutoff is the lowest $z$ that keeps at most five false
+detections in that image, selected using the ground truth, as in \cref{sec:eval}. A detection is a \emph{true positive}
+(TP) if an unmatched lattice point lies within \SI{2}{px}, otherwise a \emph{false positive} (FP; detections on the direct
+beam are ignored); a lattice point that no detection matches is a \emph{false negative} (FN). The primary metric is
+$\Rall = \mathrm{TP}/(\mathrm{TP} + \mathrm{FN})$. Because the cutoff fixes the false detections at five per image, the
+comparison asks which detector finds more true centres at the same false-detection budget.
+
+\subsection{Results}
+\Cref{tab:sobel,fig:sobel_summary} summarise the comparison. At \SI{1}{\milli\radian} the two detectors are close
+(median $\Rall$ $0.41$ for disk--ring, $0.37$ for Sobel). At \SI{2}{\milli\radian} Sobel is much worse: it finds 10\,465 true
+centres against 18\,727 and loses in 514 of 625 images. At \SI{4}{\milli\radian} Sobel is better: it finds 7\,387 true
+centres against 4\,867, doubles the median $\Rall$ from $0.031$ to $0.064$, wins in 383 images and loses in 194, and its
+centres are more precise (median error \SI{0.53}{px} against \SI{0.89}{px}).
+
+\begin{table}[!htbp]
+  \centering
+  \caption{Disk--ring (DR) versus Sobel probe matching on SiO$_2$ and the 24 crystals (625 images per angle). All lattice
+  reflections are targets; cutoff per image at five false detections, selected with the ground truth. TP, FN, FP: totals
+  over the 625 images. Error: median over images of the median distance of the true positives to their lattice point.}
+  \label{tab:sobel}
+  \small
+  \begin{tabular}{c l c r r r c c}
+    \toprule
+    $\alpha$ (mrad) & Detector & Median $\Rall$ & TP & FN & FP & Error (px) & Images better / worse \\
+    \midrule
+    1 & disk--ring & 0.41  & 35\,744 &  89\,107 & 3\,113 & 0.25 & \\
+      & Sobel      & 0.37  & 31\,412 &  93\,439 & 2\,889 & 0.24 & 150 / 394 \\
+    \addlinespace
+    2 & disk--ring & 0.24  & 18\,727 & 106\,501 & 3\,095 & 0.55 & \\
+      & Sobel      & 0.11  & 10\,465 & 114\,763 & 3\,125 & 0.33 & 97 / 514 \\
+    \addlinespace
+    4 & disk--ring & 0.031 &  4\,867 & 119\,506 & 3\,108 & 0.89 & \\
+      & Sobel      & 0.064 &  7\,387 & 116\,986 & 3\,124 & 0.53 & 383 / 194 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=\linewidth]{sobel_summary.png}
+  \caption{Disk--ring versus Sobel probe matching. (a) Median $\Rall$ over the 25 thicknesses, one point per crystal and
+  probe angle; points above the diagonal favour Sobel. (b) Median $\Rall$ of all images in bins of the overlap ratio.
+  (c) Total TP, FN and FP over the 625 images of each probe angle (DR: disk--ring, Sob: Sobel); TP $+$ FN is the number
+  of lattice reflections.}
+  \label{fig:sobel_summary}
+\end{figure}
+
+Sorted by overlap ratio (\cref{fig:sobel_summary}b), the picture is consistent with \cref{sec:overlap}. Sobel is better in
+\SI{62}{\percent} of the images with $\eta > 2.5$, where many rims are dark and the disk--ring filter has nothing left to
+detect. It is worse in \SI{88}{\percent} of the images with $0.5 < \eta \le 0.8$ (median $\Rall$ $0.33$ against $0.56$),
+where the disks are still separate. The reason is that \cref{eq:sobelcorr} has no negative part: a position where the
+template circle crosses the rims of several neighbouring disks, or the very strong rim of the direct beam, scores as high as
+a true centre. In ZrSn$_3$ at \SI{2}{\milli\radian} and \SI{200}{\angstrom}, half of the 40 strongest Sobel peaks lie
+about one disk radius from a lattice point, against \SI{7}{\percent} of the disk--ring peaks; in AlCo$_3$ at
+\SI{2}{\milli\radian} the Sobel false detections surround the direct beam (\cref{fig:sobel_AlCo3}). The disk--ring filter
+avoids this because its negative ring penalises positions next to bright structure.
+
+Even where it helps, Sobel does not solve overlap: at \SI{4}{\milli\radian} it still misses \SI{94}{\percent} of the
+lattice reflections. The gain is largest in thin samples: at \SI{4}{\milli\radian} the mean
+gain in $\Rall$ is $0.06$ up to \SI{100}{\angstrom} and vanishes beyond \SI{400}{\angstrom}. The best cases are ZrSn$_3$,
+Co$_3$(O$_2$F)$_2$ and CoSbS below \SI{100}{\angstrom}, where Sobel reaches $\Rall = 0.40$--$0.59$ against at most $0.11$
+for the disk--ring filter (ZrSn$_3$ at \SI{20}{\angstrom}: 33 of 64 centres against none). A practical combination is to use the
+disk--ring filter while $\eta \lesssim 1$ and the rim matcher beyond.
+
+\subsection{All materials}
+\Cref{fig:sobel_SiO2} to \cref{fig:sobel_ZrSn3} show both detectors on every material at \SI{200}{\angstrom}, with the
+disk--ring filter in the top row and Sobel probe matching in the bottom row. Green $+$: true positive; yellow circle:
+false negative (lattice point missed); orange $\times$: false positive. The counts are given in each panel.
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_SiO2.png}
+  \caption{SiO$_{2}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_SiO2}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_AlNiO23.png}
+  \caption{Al(NiO$_{2}$)$_{3}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_AlNiO23}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_AlCo3.png}
+  \caption{AlCo$_{3}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_AlCo3}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_AlPO4.png}
+  \caption{AlPO$_{4}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_AlPO4}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_AlPt2.png}
+  \caption{AlPt$_{2}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_AlPt2}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_Ba2Mn3O8.png}
+  \caption{Ba$_{2}$Mn$_{3}$O$_{8}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_Ba2Mn3O8}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_BW.png}
+  \caption{BW, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_BW}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_Co3O2F2.png}
+  \caption{Co$_{3}$(O$_{2}$F)$_{2}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_Co3O2F2}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_CoSbS.png}
+  \caption{CoSbS, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_CoSbS}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_ErCo5Si3.png}
+  \caption{ErCo$_{5}$Si$_{3}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_ErCo5Si3}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_FeB.png}
+  \caption{FeB, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_FeB}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_HoTe3.png}
+  \caption{HoTe$_{3}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_HoTe3}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_Li7Mn2CoO43.png}
+  \caption{Li$_{7}$Mn$_{2}$(CoO$_{4}$)$_{3}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_Li7Mn2CoO43}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_LiMnCrO4.png}
+  \caption{LiMnCrO$_{4}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_LiMnCrO4}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_Mg2B4H22C2S.png}
+  \caption{Mg$_{2}$B$_{4}$H$_{22}$C$_{2}$S, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_Mg2B4H22C2S}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_Mn6O5F7.png}
+  \caption{Mn$_{6}$O$_{5}$F$_{7}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_Mn6O5F7}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_Na2O.png}
+  \caption{Na$_{2}$O, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_Na2O}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_NbTe4Ir.png}
+  \caption{NbTe$_{4}$Ir, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_NbTe4Ir}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_Nd4Rh6Pb19.png}
+  \caption{Nd$_{4}$Rh$_{6}$Pb$_{19}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_Nd4Rh6Pb19}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_Pr4Sb3.png}
+  \caption{Pr$_{4}$Sb$_{3}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_Pr4Sb3}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_RbCaMg6.png}
+  \caption{RbCaMg$_{6}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_RbCaMg6}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_SbPbO3.png}
+  \caption{SbPbO$_{3}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_SbPbO3}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_SiI3.png}
+  \caption{SiI$_{3}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_SiI3}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_U3Bi4Rh3.png}
+  \caption{U$_{3}$Bi$_{4}$Rh$_{3}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_U3Bi4Rh3}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=0.9\linewidth]{sobel_overlay_ZrSn3.png}
+  \caption{ZrSn$_{3}$, \SI{200}{\angstrom}: disk--ring (top) and Sobel probe matching (bottom) at 1, 2 and
+  \SI{4}{\milli\radian}. Cutoff per image at five false detections, all lattice reflections as targets.}
+  \label{fig:sobel_ZrSn3}
+\end{figure}
+
+%══════════════════════════════════════════════════════════════════════════════
 \section{Practical guidance}\label{sec:guide}
 \Cref{eq:ringcond} with $r = \kappa\alpha$ gives the largest probe semi-angle at which the ring still lies on background:
 \begin{equation}
@@ -493,8 +792,8 @@ longer separate.
 ($\alpha_{\max} = \SI{2.2}{\milli\radian}$) work at 1 and \SI{2}{\milli\radian} and fail at \SI{4}{\milli\radian};
 SiO$_2$ (\SI{1.1}{\milli\radian}) works at \SI{1}{\milli\radian} and already loses half of its lattice reflections at
 \SI{2}{\milli\radian}. For dense lattices ($s < \SI{5}{px}$) no practical probe angle keeps the disks apart. When a larger
-angle is required, the disks have to be found jointly rather than one at a time, for example by fitting overlapping disks
-constrained to a lattice to the whole pattern.
+angle is required, rim matching (\cref{sec:sobel}) recovers some centres, but the disks essentially have to be found
+jointly rather than one at a time, for example by fitting overlapping disks constrained to a lattice to the whole pattern.
 
 \begin{table}[!htbp]
   \centering
@@ -559,7 +858,9 @@ constrained to a lattice to the whole pattern.
         \path{notebooks/results/per_image_recall.csv}.
   \item Overlap analysis and synthetic experiment: \path{notebooks/scripts/run_overlap_analysis.py}; results in\\
         \path{notebooks/results/overlap_real.csv} and \path{overlap_synthetic.csv}.
-  \item Figures: \path{notebooks/tutorial/make_figs.py}.
+  \item Sobel probe matching: \path{sobel_probe_map} in the notebook; \path{run_per_image.py} (method
+        ``true log + Sobel probe match''), results in \path{notebooks/results/per_image_sobel_all.csv}.
+  \item Figures: \path{notebooks/tutorial/make_figs.py} and \path{make_figs_sobel.py}.
 \end{itemize}
 
 \end{document}
